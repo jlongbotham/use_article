@@ -12,7 +12,6 @@ CURRENT ISSUES:
 news
 - "a better EU policymaking system" seen as two NPs
 
-
 techdoc
 - "at the 400 / 100 mg twice daily dose" 
 - "Generally , for SSRIs and SNRIs , these events are mild to moderate and self-limiting , however , in some patients they may be severe and / or prolonged ." is / tagged as NN?
@@ -23,8 +22,7 @@ paraweb
 """
 
 #import re
-import sys
-import nltk
+import sys, nltk
 
 class Sentence(object):
     def __init__(self):
@@ -75,6 +73,7 @@ class NounPhrase(object):
         self.pos_trigram_pre = "_"
         self.trigram_post = "_"
         self.pos_trigram_post = "_"
+        self.has_rel = False
         self.has_det = False
         self.sen = None
 
@@ -108,10 +107,11 @@ def get_sentences(c):
                
     return sentences
 
-def chunk(s):
+def chunk_np(s):
 
     pattern = """
-                  NP: {<DT|PRP\$|POS|CD>?(<RB>?<JJ.*>(<,>?<CC>?<RB>?<JJ.*>)*|<\`\`|\'\'>?)*<NN.*>+}
+                  NP: {<DT|PRP\$|POS|CD>+(<RB>?<JJ.*|VBG|VBN>(<,>?<CC>?<RB>?<JJ.*|VBG|VBN>)*|<\`\`|\'\'>?)*<NN.*>+}  # include VBG and VBN, but make determiner required
+                      {<DT|PRP\$|POS|CD>?(<RB>?<JJ.*>(<,>?<CC>?<RB>?<JJ.*>)*|<\`\`|\'\'>?)*<NN.*>+}                 # basic pattern
               """
     NPChunker = nltk.RegexpParser(pattern) 
     
@@ -184,6 +184,12 @@ def get_np(np, s):
             new_np.head = w.lemma
             new_np.pos_head = w.pos
 
+            # CHECK FOR VERBS WHOSE HEAD IS HEAD NOUN - MUST BE REL CLAUSE AS MAIN VERB HAS HEAD 0
+
+            for sub_word in w.sen.words:
+                if sub_word.pos.startswith("VB") and sub_word.index > w.index and sub_word.head == w.index:
+                    new_np.has_rel = True
+
             if w.followed_by:
                 new_np.unigram_post += w.followed_by.word + "_"
                 new_np.pos_unigram_post += w.followed_by.pos + "_"                
@@ -229,16 +235,16 @@ def main():
     nps = []
     
     for s in sentences:
-        chunk(s)
+        chunk_np(s)
         for np in s.tree.subtrees():
             if np.label() == "NP":
                 nps.append(get_np(np, s))
     
 ### Printing ###
 
-    print "sentence\thas_det\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
+    print "sentence\thas_det\thas_rel\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
     for np in nps:
-        print np.sen.text + "\t" + str(np.has_det) + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
+        print np.sen.text + "\t" + str(np.has_det) + "\t" + str(np.has_rel) + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
     
     
 ### TESTING ###
