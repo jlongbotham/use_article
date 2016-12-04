@@ -9,19 +9,15 @@ Steps:
 
 CURRENT ISSUES:
 
-news
-- "a better EU policymaking system" seen as two NPs
-
 techdoc
 - "at the 400 / 100 mg twice daily dose" 
 - "Generally , for SSRIs and SNRIs , these events are mild to moderate and self-limiting , however , in some patients they may be severe and / or prolonged ." is / tagged as NN?
 
-paraweb
-- "as his attorney who will provide the claimant with legal assistance either free of charge or for a reduced fee ." for a reduced fee NP identified as only "fee"
+ontonotes
+- word forms not lemmatized
 
 """
 
-#import re
 import sys, nltk
 
 class Sentence(object):
@@ -44,6 +40,8 @@ class Word(object):
         self.head = None
         self.role = None
         self.sen = None
+        self.is_coref = False
+        self.is_first = False
         self.preceded_by = None
         self.followed_by = None
     
@@ -74,44 +72,100 @@ class NounPhrase(object):
         self.trigram_post = "_"
         self.pos_trigram_post = "_"
         self.has_rel = False
+        self.has_rel_to = False
+        self.has_rel_past = False
+        self.has_rel_present = False
+        self.role = None
         self.has_det = False
+        self.is_coref = False
+        self.is_first = False
         self.sen = None
 
-def get_sentences(c):
-    raw = open(c).read().decode("utf8").split("\n\n")
+def get_sentences(f, corpus):
+    raw = open(f).read().decode("utf8").replace("\"","\'\'").split("\n\n")
     
     sentences = []
-    
-    for sentence in raw:
-        sen = Sentence()
-        sentence = sentence.split("\n")
-        sen.label = sentence[0]
-        for i in range(1, len(sentence)):
-            w = Word()
-            word = sentence[i].split("\t")
-            w.word = word[0].encode('utf8')
-            sen.text = sen.text + w.word + " "
-            w.lemma = word[1].encode('utf8')
-            w.pos = word[2].encode('utf8')
-            w.index = int(word[3]) - 1
-            w.head = int(word[4]) - 1
-            w.role = word[5]
-            w.sen = sen
-            sen.words.append(w)
-            if i > 1:
-                w.preceded_by = w.sen.words[i - 2]
-                w.preceded_by.followed_by = w
+    corefs = {}
 
-        if len(sen.words) > 0:
-            sentences.append(sen)
-               
+    if corpus == "czeng":
+        for sentence in raw:
+            sen = Sentence()
+            sentence = sentence.split("\n")
+            sen.label = sentence[0]
+            for i in range(1, len(sentence)):
+                w = Word()
+                word = sentence[i].split("\t")
+                w.word = word[0].encode('utf8')
+                sen.text = sen.text + w.word + " "
+                w.lemma = word[1].encode('utf8')
+                w.pos = word[2].encode('utf8')
+                w.index = int(word[3]) - 1
+                w.head = int(word[4]) - 1
+                w.role = word[5].encode('utf8')
+                w.sen = sen
+                sen.words.append(w)
+                if i > 1:
+                    w.preceded_by = w.sen.words[i - 2]
+                    w.preceded_by.followed_by = w
+
+            if len(sen.words) > 0:
+                sentences.append(sen)
+
+    elif corpus == "ontonotes":
+        for sentence in raw:
+            sen = Sentence()
+            sentence = sentence.split("\n")
+            #print corefs
+            for i in range(0, len(sentence)):
+                if sentence[i].startswith("#"):
+                    pass
+                else:
+                    w = Word()
+                    word = "\t".join(sentence[i].split()).split("\t")
+                    w.word = word[3].encode('utf8')
+                    sen.label = word[0]
+                    if sen.label in corefs:
+                        pass
+                    else:
+                        corefs[sen.label] = []
+                    sen.text = sen.text + w.word + " "
+                    # TODO: lemmatize
+                    w.lemma = word[3].encode('utf8')
+                    w.pos = word[4].encode('utf8')
+                    w.index = int(word[2])
+                    # w.head = int(word[4]) - 1
+                    # w.role = word[5]
+                    cs = word[len(word) - 1].split("|")
+                    for coref in cs:
+                        coref = coref.strip("(").strip(")")
+                        if coref == "-":
+                            pass
+                        elif sen.label in corefs and coref not in corefs[sen.label]:
+                            corefs[sen.label].append(coref)
+                            w.is_first = True
+                        else:
+                            w.is_coref = True
+                    w.sen = sen
+                    sen.words.append(w)
+                    if i > 1:
+                        w.preceded_by = w.sen.words[i - 2]
+                        w.preceded_by.followed_by = w
+
+                        #print w.word, w.is_coref
+
+            if len(sen.words) > 0:
+                sentences.append(sen)
+
+    else:
+        print "Use 'czeng' or 'ontonotes' to specify the corpus"
+
     return sentences
 
 def chunk_np(s):
 
     pattern = """
                   NP: {<DT|PRP\$|POS|CD>+(<RB>?<JJ.*|VBG|VBN>(<,>?<CC>?<RB>?<JJ.*|VBG|VBN>)*|<\`\`|\'\'>?)*<NN.*>+}  # include VBG and VBN, but make determiner required
-                      {<DT|PRP\$|POS|CD>?(<RB>?<JJ.*>(<,>?<CC>?<RB>?<JJ.*>)*|<\`\`|\'\'>?)*<NN.*>+}                 # basic pattern
+                      {<DT|PRP\$|POS|CD>?(<RB>?<JJ.*>(<,>?<CC>?<RB>?<JJ.*>)*|<\`\`|\'\'>?)*<NN.*>+}                  # basic pattern
               """
     NPChunker = nltk.RegexpParser(pattern) 
     
@@ -128,7 +182,9 @@ def get_np(np, s):
     for i in range(len(np)):
         w = np[i][0]
         pos = np[i][1]
-        
+        if w.is_first:
+            new_np.is_first = True
+
         if i == 0 and pos == "DT":
             new_np.has_det = True
         else:
@@ -183,12 +239,19 @@ def get_np(np, s):
         if i == (len(np) - 1):
             new_np.head = w.lemma
             new_np.pos_head = w.pos
+            new_np.role = w.role
+            if new_np.is_first == False:
+                new_np.is_coref = w.is_coref
 
             # CHECK FOR VERBS WHOSE HEAD IS HEAD NOUN - MUST BE REL CLAUSE AS MAIN VERB HAS HEAD 0
-
             for sub_word in w.sen.words:
                 if sub_word.pos.startswith("VB") and sub_word.index > w.index and sub_word.head == w.index:
-                    new_np.has_rel = True
+                    if sub_word.preceded_by.lemma == "to":
+                        new_np.has_rel_to = True
+                    elif sub_word.pos == "VBD" or sub_word.pos == "VBN":
+                        new_np.has_rel_past = True
+                    else:
+                        new_np.has_rel_present = True
 
             if w.followed_by:
                 new_np.unigram_post += w.followed_by.word + "_"
@@ -226,12 +289,13 @@ def get_np(np, s):
 
 
 def main():
-    if len(sys.argv) != 2:
-        print "Usage: extract-features.py <src>"
+    if len(sys.argv) != 3:
+        print "Usage: extract-features.py <src> <corpus: czeng|ontonotes>"
         return 1
     
     src = sys.argv[1]
-    sentences = get_sentences(src)
+    corpus = sys.argv[2]
+    sentences = get_sentences(src, corpus)
     nps = []
     
     for s in sentences:
@@ -242,11 +306,17 @@ def main():
     
 ### Printing ###
 
-    print "sentence\thas_det\thas_rel\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
-    for np in nps:
-        print np.sen.text + "\t" + str(np.has_det) + "\t" + str(np.has_rel) + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
-    
-    
+    if corpus == "czeng":
+        print "sentence\thas_det\thas_rel_to\thas_rel_past\thas_rel_present\trole\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
+        for np in nps:
+            print np.sen.text + "\t" + str(np.has_det) + "\t" + str(np.has_rel_to) + "\t" + str(np.has_rel_past) + "\t" + str(np.has_rel_present) + "\t" + np.role + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
+    elif corpus == "ontonotes":
+        print "sentence\thas_det\tis_coref\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
+        for np in nps:
+            print np.sen.text + "\t" + str(np.has_det) + "\t" + str(np.is_coref) + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
+
+
+
 ### TESTING ###
 """
     for np in nps:
