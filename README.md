@@ -72,6 +72,7 @@ bc/cctv/00/cctv_0001   0   17                .     .          *))     -    -   -
 ### Example OntoNotes output
 
 ```
+sentence	has_det	is_coref	string	pos_string	head	pos_head	core	pos_core	mod	pos_mod	unigram_pre	pos_unigram_pre	bigram_pre	pos_bigram_pre	trigram_pre	pos_trigram_pre	unigram_post	pos_unigram_post	bigram_post	pos_bigram_post	trigram_post	pos_trigram_post
 On a wall outside the headquarters we found a map . 	True	False	_wall_	_NN_	wall	NN	_wall_	_NN_	_	_	_BOS_	_BOS_	_BOS_BOS	_BOS_BOS	_BOS_BOS_BOS	_BOS_BOS_BOS	_the_	_DT_	_the_we_	_DT_PRP_	_the_we_a_	_DT_PRP_DT_
 On a wall outside the headquarters we found a map . 	True	False	_headquarters_	_NN_	headquarters	NN	_headquarters_	_NN_	_	_	_wall_	_NN_	_On_wall_	_IN_NN_	_BOS_On_wall_	_BOS_IN_NN_	_found_	_VBD_	_found_map_	_VBD_NN_	_found_map_EOS_	_VBD_NN_EOS_
 On a wall outside the headquarters we found a map . 	True	False	_map_	_NN_	map	NN	_map_	_NN_	_	_	_we_	_PRP_	_the_we_	_DT_PRP_	_wall_the_we_	_NN_DT_PRP_	_EOS_	_EOS_	_EOS_EOS	_EOS_EOS	_EOS_EOS_EOS	_EOS_EOS_EOS
