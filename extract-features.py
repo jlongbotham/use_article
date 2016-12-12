@@ -14,7 +14,7 @@ techdoc
 - "Generally , for SSRIs and SNRIs , these events are mild to moderate and self-limiting , however , in some patients they may be severe and / or prolonged ." is / tagged as NN?
 
 ontonotes
-- word forms not lemmatized
+- word forms normalized for case but not lemmatized
 
 """
 
@@ -77,6 +77,7 @@ class NounPhrase(object):
         self.has_rel_present = False
         self.role = None
         self.has_det = False
+        self.article = "none"
         self.is_coref = False
         self.is_first = False
         self.sen = None
@@ -129,9 +130,11 @@ def get_sentences(f, corpus):
                     else:
                         corefs[sen.label] = []
                     sen.text = sen.text + w.word + " "
-                    # TODO: lemmatize
-                    w.lemma = word[3].encode('utf8')
                     w.pos = word[4].encode('utf8')
+                    if w.pos != "NNP":
+                        w.lemma = word[3].encode('utf8').lower()
+                    else:
+                        w.lemma = word[3].encode('utf8')
                     w.index = int(word[2])
                     # w.head = int(word[4]) - 1
                     # w.role = word[5]
@@ -176,6 +179,12 @@ def chunk_np(s):
     return s.tree
 
 def get_np(np, s):
+
+    definite = ["the"] #, "this", "that", "these", "those", "both", "each", "every", "all", "neither", "no"]
+    indefinite = ["a", "an"] #, "some", "many", "any", "another", "other", "either", "several"]
+
+    definite_full = ["the", "this", "that", "these", "those", "both", "each", "every", "all", "neither", "no"]
+    indefinite_full = ["a", "an", "some", "many", "any", "another", "other", "either", "several"]
     
     new_np = NounPhrase()
     new_np.sen = s
@@ -185,18 +194,22 @@ def get_np(np, s):
         if w.is_first:
             new_np.is_first = True
 
-        if i == 0 and pos == "DT":
+        ## Test for definite/indefinite/zero
+        if i == 0 and w.lemma in definite:
+        #if i == 0 and (w.lemma in definite_full or pos in ["POS", "PRP$"]):
+            new_np.article = "definite"
+            new_np.has_det = True
+        elif i == 0 and w.lemma in indefinite:
+        #elif i == 0 and (w.lemma in indefinite_full or pos == "CD"):
+            new_np.article = "indefinite"
             new_np.has_det = True
         else:
             new_np.words.append(w)
-            
             new_np.string += w.lemma + "_"
             new_np.pos_string += w.pos + "_"
-            
             if not pos.startswith("NN"):
                 new_np.mod += w.lemma + "_"
                 new_np.pos_mod += w.pos + "_"
-                
             else:
                 new_np.core += w.lemma + "_"
                 new_np.pos_core += w.pos + "_"
@@ -307,13 +320,13 @@ def main():
 ### Printing ###
 
     if corpus == "czeng":
-        print "sentence\thas_det\thas_rel_to\thas_rel_past\thas_rel_present\trole\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
+        print "sentence\thas_det\tarticle\thas_rel_to\thas_rel_past\thas_rel_present\trole\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
         for np in nps:
-            print np.sen.text + "\t" + str(np.has_det) + "\t" + str(np.has_rel_to) + "\t" + str(np.has_rel_past) + "\t" + str(np.has_rel_present) + "\t" + np.role + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
+            print np.sen.text + "\t" + str(np.has_det)  + "\t" + str(np.article) + "\t" + str(np.has_rel_to) + "\t" + str(np.has_rel_past) + "\t" + str(np.has_rel_present) + "\t" + np.role + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
     elif corpus == "ontonotes":
-        print "sentence\thas_det\tis_coref\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
+        print "sentence\thas_det\tarticle\tis_coref\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
         for np in nps:
-            print np.sen.text + "\t" + str(np.has_det) + "\t" + str(np.is_coref) + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
+            print np.sen.text + "\t" + str(np.has_det) + "\t" + np.article + "\t" + str(np.is_coref) + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
 
 
 
