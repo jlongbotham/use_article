@@ -28,9 +28,6 @@ class Sentence(object):
         self.nps = []
         self.tree = None
         
-    #def get_word(index):
-    #    return self.words[index]
-        
 class Word(object):
     def __init__(self):
         self.word = None
@@ -116,7 +113,6 @@ def get_sentences(f, corpus):
         for sentence in raw:
             sen = Sentence()
             sentence = sentence.split("\n")
-            #print corefs
             for i in range(0, len(sentence)):
                 if sentence[i].startswith("#"):
                     pass
@@ -150,11 +146,13 @@ def get_sentences(f, corpus):
                             w.is_coref = True
                     w.sen = sen
                     sen.words.append(w)
-                    if i > 1:
+                    if (sentence[0].startswith("#") and i > 1):
                         w.preceded_by = w.sen.words[i - 2]
                         w.preceded_by.followed_by = w
 
-                        #print w.word, w.is_coref
+                    elif (not sentence[0].startswith("#") and i > 0):
+                        w.preceded_by = w.sen.words[i - 1]
+                        w.preceded_by.followed_by = w
 
             if len(sen.words) > 0:
                 sentences.append(sen)
@@ -320,107 +318,12 @@ def main():
 ### Printing ###
 
     if corpus == "czeng":
-        print "sentence\thas_det\tarticle\thas_rel_to\thas_rel_past\thas_rel_present\trole\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
         for np in nps:
             print np.sen.text + "\t" + str(np.has_det)  + "\t" + str(np.article) + "\t" + str(np.has_rel_to) + "\t" + str(np.has_rel_past) + "\t" + str(np.has_rel_present) + "\t" + np.role + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
     elif corpus == "ontonotes":
         print "sentence\thas_det\tarticle\tis_coref\tstring\tpos_string\thead\tpos_head\tcore\tpos_core\tmod\tpos_mod\tunigram_pre\tpos_unigram_pre\tbigram_pre\tpos_bigram_pre\ttrigram_pre\tpos_trigram_pre\tunigram_post\tpos_unigram_post\tbigram_post\tpos_bigram_post\ttrigram_post\tpos_trigram_post"
         for np in nps:
             print np.sen.text + "\t" + str(np.has_det) + "\t" + np.article + "\t" + str(np.is_coref) + "\t" + np.string + "\t" + np.pos_string + "\t" + np.head + "\t" + np.pos_head + "\t" + np.core + "\t" + np.pos_core + "\t" + np.mod + "\t" + np.pos_mod + "\t" + np.unigram_pre + "\t" + np.pos_unigram_pre + "\t" + np.bigram_pre + "\t" + np.pos_bigram_pre + "\t" + np.trigram_pre + "\t" + np.pos_trigram_pre + "\t" + np.unigram_post + "\t" + np.pos_unigram_post + "\t" + np.bigram_post + "\t" + np.pos_bigram_post + "\t" + np.trigram_post + "\t" + np.pos_trigram_post
-
-
-
-### TESTING ###
-"""
-    for np in nps:
-        print np.sen.text
-        if np.has_det:
-            print "DETERMINER"
-        for w in np.words:
-            print w.word, w.lemma, w.pos
-        print "HEAD: ", np.head, np.pos_head
-        print "CORE: ", np.core, np.pos_core
-        print "MOD: ", np.mod, np.pos_mod
-        print "STRING: ", np.string, np.pos_string
-        print "PRE UNI: ", np.unigram_pre, np.pos_unigram_pre
-        print "PRE BI: ", np.bigram_pre, np.pos_bigram_pre
-        print "PRE TRI: ", np.trigram_pre, np.pos_trigram_pre
-        print "POST UNI: ", np.unigram_post, np.pos_unigram_post
-        print "POST BI: ", np.bigram_post, np.pos_bigram_post
-        print "POST TRI: ", np.trigram_post, np.pos_trigram_post
-        print ""
-"""        
-        
-
-"""
-    for s in sentences:
-        for np in s.tree.subtrees():
-            if np.label() == "NP":
-                for i in range(len(np)):
-                    print np[i][0], np[i][0].lemma, np[i][1]
-            print ""
-            
-"""
-
-
       
 if __name__ == "__main__":
     main()
-    
-    
-
-
-
-"""
-def has_det(n):
-    
-    if n.sen.words[n.index - 2].pos == "DT":
-        return True
-    elif n.sen.words[n.index - 2].pos in mod and n.sen.words[n.index - 3].pos == "DT":
-        return True
-    #elif n.sen.words[n.index - 2].pos in mod and n.sen.words[n.index - 4].pos == "DT":
-    #    return True
-    
-
-def build_nps(nouns, sentences):
-    
-    mod = ["JJ", "JJR", "JJS", "RB", "RBR", "RBS", "VBN", "DT", "CC", ",", "POS", "PRP$"]
-    nps = []
-    
-    for s in sentences:
-        for i in range(len(s.words), 0, -1):
-            w = s.words[i - 1]
-            if w.pos.startswith("NN") and w.in_np == False:
-                np = NounPhrase()
-                np.head = w
-                np.core = w.word
-                np.string = w.word
-                np.pos_string = w.pos
-                np.pos_core = w.pos
-                w.in_np = True
-                #np.trigram_post =
-                for j in range(i - 2, 0, -1):
-                    pre = s.words[j]
-                    if pre.pos.startswith("NN") and np.core_found == False:
-                        np.core = pre.word + "_" + np.core
-                        np.pos_core = pre.pos + "_" + np.pos_core
-                        np.string = pre.word + "_" + np.string
-                        np.pos_string = pre.pos + "_" + np.pos_string
-                        pre.in_np = True
-                    elif pre.pos in mod:
-                        np.mod = (pre.word + "_" + np.mod) if np.mod else pre.word
-                        np.pos_mod = (pre.pos + "_" + np.pos_mod) if np.pos_mod else pre.pos                        
-                        np.string = pre.word + "_" + np.string
-                        np.pos_string = pre.pos + "_" + np.pos_string
-                        pre.in_np = True
-                        np.core_found = True
-                        if pre.pos == "DT":
-                            np.has_det = True
-                            break
-                    else:
-                        break
-                nps.append(np)
-    
-    return nps    
-    
-"""    
